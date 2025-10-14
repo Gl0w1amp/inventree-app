@@ -54,3 +54,10 @@ jobs:
         pod install
         cd ..
         fvm flutter build ios --release --no-codesign --no-tree-shake-icons
+
+    - name: Upload iOS App Bundle
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-release-app
+        path: build/ios/iphoneos/Runner.app
+        if-no-files-found: error
