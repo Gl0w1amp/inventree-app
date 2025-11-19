@@ -1,3 +1,20 @@
+### 0.21.0 - November 2025
+---
+
+- Display default stock location in Part detail page
+- Display stock information in SupplierPart detail page
+
+### 0.20.2 - November 2025
+---
+
+- Fixes URL for reporting issues on GitHub
+- Fix for uploading files against server with self-signed certificates
+
+### 0.20.1 - October 2025
+---
+
+- Bug fix for camera barcode scanner
+
 ### 0.20.0 - October 2025
 ---
 
