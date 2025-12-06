@@ -1,6 +1,8 @@
 import "package:flutter/material.dart";
 import "package:flutter_speed_dial/flutter_speed_dial.dart";
 import "package:flutter_tabler_icons/flutter_tabler_icons.dart";
+import "package:inventree/inventree/attachment.dart";
+import "package:inventree/inventree/parameter.dart";
 
 import "package:inventree/l10.dart";
 import "package:inventree/api.dart";
@@ -13,6 +15,7 @@ import "package:inventree/widget/attachment_widget.dart";
 import "package:inventree/widget/link_icon.dart";
 import "package:inventree/widget/order/purchase_order_list.dart";
 import "package:inventree/widget/order/sales_order_list.dart";
+import "package:inventree/widget/parameter_widget.dart";
 import "package:inventree/widget/refreshable_state.dart";
 import "package:inventree/widget/snacks.dart";
 import "package:inventree/widget/company/supplier_part_list.dart";
@@ -37,6 +40,7 @@ class _CompanyDetailState extends RefreshableState<CompanyDetailWidget> {
   int outstandingPurchaseOrders = 0;
   int outstandingSalesOrders = 0;
 
+  int parameterCount = 0;
   int attachmentCount = 0;
 
   @override
@@ -184,15 +188,25 @@ class _CompanyDetailState extends RefreshableState<CompanyDetailWidget> {
           }
         });
 
-    InvenTreeCompanyAttachment().countAttachments(widget.company.pk).then((
-      value,
-    ) {
-      if (mounted) {
-        setState(() {
-          attachmentCount = value;
+    InvenTreeParameter()
+        .countParameters(InvenTreeCompany.MODEL_TYPE, widget.company.pk)
+        .then((value) {
+          if (mounted) {
+            setState(() {
+              parameterCount = value;
+            });
+          }
         });
-      }
-    });
+
+    InvenTreeAttachment()
+        .countAttachments(InvenTreeCompany.MODEL_TYPE, widget.company.pk)
+        .then((value) {
+          if (mounted) {
+            setState(() {
+              attachmentCount = value;
+            });
+          }
+        });
   }
 
   Future<void> editCompany(BuildContext context) async {
@@ -393,28 +407,30 @@ class _CompanyDetailState extends RefreshableState<CompanyDetailWidget> {
       );
     }
 
-    tiles.add(
-      ListTile(
-        title: Text(L10().attachments),
-        leading: Icon(TablerIcons.file, color: COLOR_ACTION),
-        trailing: LinkIcon(
-          text: attachmentCount > 0 ? attachmentCount.toString() : null,
-        ),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AttachmentWidget(
-                InvenTreeCompanyAttachment(),
-                widget.company.pk,
-                widget.company.name,
-                InvenTreeCompany().canEdit,
-              ),
-            ),
-          );
-        },
-      ),
+    ListTile? parameterTile = ShowParametersItem(
+      context,
+      InvenTreeCompany.MODEL_TYPE,
+      widget.company.pk,
+      parameterCount,
+      widget.company.canEdit,
     );
+
+    if (parameterTile != null) {
+      tiles.add(parameterTile);
+    }
+
+    ListTile? attachmentTile = ShowAttachmentsItem(
+      context,
+      InvenTreeCompany.MODEL_TYPE,
+      widget.company.pk,
+      widget.company.name,
+      attachmentCount,
+      widget.company.canEdit,
+    );
+
+    if (attachmentTile != null) {
+      tiles.add(attachmentTile);
+    }
 
     return tiles;
   }

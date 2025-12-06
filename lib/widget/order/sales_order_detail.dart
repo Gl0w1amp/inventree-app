@@ -3,13 +3,16 @@ import "package:flutter_speed_dial/flutter_speed_dial.dart";
 import "package:flutter_tabler_icons/flutter_tabler_icons.dart";
 import "package:inventree/barcode/barcode.dart";
 import "package:inventree/barcode/sales_order.dart";
+import "package:inventree/inventree/attachment.dart";
 import "package:inventree/inventree/company.dart";
+import "package:inventree/inventree/parameter.dart";
 import "package:inventree/inventree/sales_order.dart";
 import "package:inventree/preferences.dart";
 import "package:inventree/widget/link_icon.dart";
 import "package:inventree/widget/order/so_extra_line_list.dart";
 import "package:inventree/widget/order/so_line_list.dart";
 import "package:inventree/widget/order/so_shipment_list.dart";
+import "package:inventree/widget/parameter_widget.dart";
 import "package:inventree/widget/refreshable_state.dart";
 
 import "package:inventree/l10.dart";
@@ -42,6 +45,7 @@ class _SalesOrderDetailState extends RefreshableState<SalesOrderDetailWidget> {
   bool showCameraShortcut = true;
   bool supportsProjectCodes = false;
   int attachmentCount = 0;
+  int parameterCount = 0;
 
   @override
   String getAppBarTitle() {
@@ -108,8 +112,12 @@ class _SalesOrderDetailState extends RefreshableState<SalesOrderDetailWidget> {
 
   /// Upload an image for this order
   Future<void> _uploadImage(BuildContext context) async {
-    InvenTreeSalesOrderAttachment()
-        .uploadImage(widget.order.pk, prefix: widget.order.reference)
+    InvenTreeAttachment()
+        .uploadImage(
+          InvenTreeSalesOrder.MODEL_TYPE,
+          widget.order.pk,
+          prefix: widget.order.reference,
+        )
         .then((result) => refresh(context));
   }
 
@@ -266,15 +274,25 @@ class _SalesOrderDetailState extends RefreshableState<SalesOrderDetailWidget> {
       true,
     );
 
-    InvenTreeSalesOrderAttachment().countAttachments(widget.order.pk).then((
-      int value,
-    ) {
-      if (mounted) {
-        setState(() {
-          attachmentCount = value;
+    InvenTreeParameter()
+        .countParameters(InvenTreeSalesOrder.MODEL_TYPE, widget.order.pk)
+        .then((int value) {
+          if (mounted) {
+            setState(() {
+              parameterCount = value;
+            });
+          }
         });
-      }
-    });
+
+    InvenTreeAttachment()
+        .countAttachments(InvenTreeSalesOrder.MODEL_TYPE, widget.order.pk)
+        .then((int value) {
+          if (mounted) {
+            setState(() {
+              attachmentCount = value;
+            });
+          }
+        });
 
     // Count number of "extra line items" against this order
     InvenTreeSOExtraLineItem()
@@ -492,29 +510,30 @@ class _SalesOrderDetailState extends RefreshableState<SalesOrderDetailWidget> {
       ),
     );
 
-    // Attachments
-    tiles.add(
-      ListTile(
-        title: Text(L10().attachments),
-        leading: Icon(TablerIcons.file, color: COLOR_ACTION),
-        trailing: LinkIcon(
-          text: attachmentCount > 0 ? attachmentCount.toString() : null,
-        ),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AttachmentWidget(
-                InvenTreeSalesOrderAttachment(),
-                widget.order.pk,
-                widget.order.reference,
-                widget.order.canEdit,
-              ),
-            ),
-          );
-        },
-      ),
+    ListTile? parameterTile = ShowParametersItem(
+      context,
+      InvenTreeSalesOrder.MODEL_TYPE,
+      widget.order.pk,
+      parameterCount,
+      widget.order.canEdit,
     );
+
+    if (parameterTile != null) {
+      tiles.add(parameterTile);
+    }
+
+    ListTile? attachmentTile = ShowAttachmentsItem(
+      context,
+      InvenTreeSalesOrder.MODEL_TYPE,
+      widget.order.pk,
+      widget.order.reference,
+      attachmentCount,
+      widget.order.canEdit,
+    );
+
+    if (attachmentTile != null) {
+      tiles.add(attachmentTile);
+    }
 
     return tiles;
   }

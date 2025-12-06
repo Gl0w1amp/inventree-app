@@ -4,6 +4,8 @@ import "package:flutter_tabler_icons/flutter_tabler_icons.dart";
 
 import "package:inventree/app_colors.dart";
 import "package:inventree/barcode/barcode.dart";
+import "package:inventree/inventree/attachment.dart";
+import "package:inventree/inventree/parameter.dart";
 import "package:inventree/l10.dart";
 import "package:inventree/helpers.dart";
 
@@ -15,10 +17,10 @@ import "package:inventree/preferences.dart";
 
 import "package:inventree/widget/attachment_widget.dart";
 import "package:inventree/widget/link_icon.dart";
+import "package:inventree/widget/parameter_widget.dart";
 import "package:inventree/widget/part/bom_list.dart";
 import "package:inventree/widget/part/part_list.dart";
 import "package:inventree/widget/notes_widget.dart";
-import "package:inventree/widget/part/part_parameter_widget.dart";
 import "package:inventree/widget/part/part_pricing.dart";
 import "package:inventree/widget/progress.dart";
 import "package:inventree/widget/part/category_display.dart";
@@ -49,21 +51,17 @@ class _PartDisplayState extends RefreshableState<PartDetailWidget> {
 
   InvenTreeStockLocation? defaultLocation;
 
-  int parameterCount = 0;
-
   bool allowLabelPrinting = false;
-  bool showParameters = false;
   bool showBom = false;
   bool showPricing = false;
 
+  int parameterCount = 0;
   int attachmentCount = 0;
   int bomCount = 0;
   int usedInCount = 0;
   int variantCount = 0;
 
   InvenTreePartPricing? partPricing;
-
-  List<Map<String, dynamic>> labels = [];
 
   @override
   String getAppBarTitle() => L10().partDetails;
@@ -121,19 +119,13 @@ class _PartDisplayState extends RefreshableState<PartDetailWidget> {
       );
     }
 
-    if (labels.isNotEmpty) {
+    if (allowLabelPrinting && api.supportsModernLabelPrinting) {
       actions.add(
         SpeedDialChild(
           child: Icon(TablerIcons.printer),
           label: L10().printLabel,
           onTap: () async {
-            selectAndPrintLabel(
-              context,
-              labels,
-              widget.part.pk,
-              "part",
-              "part=${widget.part.pk}",
-            );
+            selectAndPrintLabel(context, "part", widget.part.pk);
           },
         ),
       );
@@ -158,10 +150,6 @@ class _PartDisplayState extends RefreshableState<PartDetailWidget> {
     // Load page settings from local storage
     showPricing = await InvenTreeSettingsManager().getBool(
       INV_PART_SHOW_PRICING,
-      true,
-    );
-    showParameters = await InvenTreeSettingsManager().getBool(
-      INV_PART_SHOW_PARAMETERS,
       true,
     );
     showBom = await InvenTreeSettingsManager().getBool(INV_PART_SHOW_BOM, true);
@@ -220,13 +208,30 @@ class _PartDisplayState extends RefreshableState<PartDetailWidget> {
     }
 
     // Request the number of attachments
-    InvenTreePartAttachment().countAttachments(part.pk).then((int value) {
-      if (mounted) {
-        setState(() {
-          attachmentCount = value;
-        });
-      }
-    });
+    if (api.supportsModernAttachments) {
+      InvenTreeAttachment()
+          .countAttachments(InvenTreePart.MODEL_TYPE, part.pk)
+          .then((int value) {
+            if (mounted) {
+              setState(() {
+                attachmentCount = value;
+              });
+            }
+          });
+    }
+
+    // Request the number of parameters
+    if (api.supportsModernParameters) {
+      InvenTreeParameter()
+          .countParameters(InvenTreePart.MODEL_TYPE, part.pk)
+          .then((int value) {
+            if (mounted) {
+              setState(() {
+                parameterCount = value;
+              });
+            }
+          });
+    }
 
     // If show pricing information?
     if (showPricing) {
@@ -271,26 +276,6 @@ class _PartDisplayState extends RefreshableState<PartDetailWidget> {
         });
       }
     });
-
-    List<Map<String, dynamic>> _labels = [];
-    allowLabelPrinting &= api.supportsMixin("labels");
-
-    if (allowLabelPrinting) {
-      String model_type = api.supportsModernLabelPrinting
-          ? InvenTreePart.MODEL_TYPE
-          : "part";
-      String item_key = api.supportsModernLabelPrinting ? "items" : "part";
-
-      _labels = await getLabelTemplates(model_type, {
-        item_key: widget.part.pk.toString(),
-      });
-    }
-
-    if (mounted) {
-      setState(() {
-        labels = _labels;
-      });
-    }
   }
 
   void _editPartDialog(BuildContext context) {
@@ -624,28 +609,30 @@ class _PartDisplayState extends RefreshableState<PartDetailWidget> {
       ),
     );
 
-    tiles.add(
-      ListTile(
-        title: Text(L10().attachments),
-        leading: Icon(TablerIcons.file, color: COLOR_ACTION),
-        trailing: LinkIcon(
-          text: attachmentCount > 0 ? attachmentCount.toString() : null,
-        ),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AttachmentWidget(
-                InvenTreePartAttachment(),
-                part.pk,
-                L10().part,
-                part.canEdit,
-              ),
-            ),
-          );
-        },
-      ),
+    ListTile? parameterTile = ShowParametersItem(
+      context,
+      InvenTreePart.MODEL_TYPE,
+      part.pk,
+      parameterCount,
+      part.canEdit,
     );
+
+    if (parameterTile != null) {
+      tiles.add(parameterTile);
+    }
+
+    ListTile? attachmentTile = ShowAttachmentsItem(
+      context,
+      InvenTreePart.MODEL_TYPE,
+      part.pk,
+      L10().part,
+      attachmentCount,
+      part.canEdit,
+    );
+
+    if (attachmentTile != null) {
+      tiles.add(attachmentTile);
+    }
 
     return tiles;
   }
@@ -740,10 +727,6 @@ class _PartDisplayState extends RefreshableState<PartDetailWidget> {
   List<Widget> getTabIcons(BuildContext context) {
     List<Widget> icons = [Tab(text: L10().details), Tab(text: L10().stock)];
 
-    if (showParameters) {
-      icons.add(Tab(text: L10().parameters));
-    }
-
     return icons;
   }
 
@@ -756,11 +739,6 @@ class _PartDisplayState extends RefreshableState<PartDetailWidget> {
       ),
       PaginatedStockItemList({"part": part.pk.toString()}),
     ];
-
-    if (showParameters) {
-      tabs.add(PaginatedParameterList({"part": part.pk.toString()}));
-    }
-
     return tabs;
   }
 }

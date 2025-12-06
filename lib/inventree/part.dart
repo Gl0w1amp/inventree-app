@@ -133,68 +133,6 @@ class InvenTreePartTestTemplate extends InvenTreeModel {
 }
 
 /*
- Class representing the PartParameter database model
- */
-class InvenTreePartParameter extends InvenTreeModel {
-  InvenTreePartParameter() : super();
-
-  InvenTreePartParameter.fromJson(Map<String, dynamic> json)
-    : super.fromJson(json);
-
-  @override
-  String get URL => "part/parameter/";
-
-  @override
-  List<String> get rolesRequired => ["part"];
-
-  @override
-  InvenTreeModel createFromJson(Map<String, dynamic> json) =>
-      InvenTreePartParameter.fromJson(json);
-
-  @override
-  Map<String, Map<String, dynamic>> formFields() {
-    Map<String, Map<String, dynamic>> fields = {
-      "header": {
-        "type": "string",
-        "read_only": true,
-        "label": name,
-        "help_text": description,
-        "value": "",
-      },
-      "data": {"type": "string"},
-    };
-
-    return fields;
-  }
-
-  @override
-  String get name => getString("name", subKey: "template_detail");
-
-  @override
-  String get description => getString("description", subKey: "template_detail");
-
-  String get value => getString("data");
-
-  String get valueString {
-    String v = value;
-
-    if (units.isNotEmpty) {
-      v += " ";
-      v += units;
-    }
-
-    return v;
-  }
-
-  bool get as_bool => value.toLowerCase() == "true";
-
-  String get units => getString("units", subKey: "template_detail");
-
-  bool get is_checkbox =>
-      getBool("checkbox", subKey: "template_detail", backup: false);
-}
-
-/*
  * Class representing the Part database model
  */
 class InvenTreePart extends InvenTreeModel {
@@ -546,29 +484,4 @@ class InvenTreePartPricing extends InvenTreeModel {
 
   double? get saleHistoryMin => getDoubleOrNull("sale_history_min");
   double? get saleHistoryMax => getDoubleOrNull("sale_history_max");
-}
-
-/*
- * Class representing an attachment file against a Part object
- */
-class InvenTreePartAttachment extends InvenTreeAttachment {
-  InvenTreePartAttachment() : super();
-
-  InvenTreePartAttachment.fromJson(Map<String, dynamic> json)
-    : super.fromJson(json);
-
-  @override
-  String get REFERENCE_FIELD => "part";
-
-  @override
-  String get REF_MODEL_TYPE => "part";
-
-  @override
-  String get URL => InvenTreeAPI().supportsModernAttachments
-      ? "attachment/"
-      : "part/attachment/";
-
-  @override
-  InvenTreeModel createFromJson(Map<String, dynamic> json) =>
-      InvenTreePartAttachment.fromJson(json);
 }
